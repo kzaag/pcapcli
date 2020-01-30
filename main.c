@@ -15,9 +15,10 @@ struct ip_agg
     struct in_addr addr;
     unsigned long count;
     time_t ltime;
+    struct addr_loc loc;
 };
 
-#define AGG_LEN 50
+#define AGG_LEN 20
 
 struct ip_agg agg[AGG_LEN];
 size_t agg_ix = 0;
@@ -44,8 +45,18 @@ void agg_draw()
     for (size_t i = 0; i < agg_ix; i++)
     {
         time_t elp = now - agg[i].ltime;
-        printf("%45s\r", " ");
-        printf("%-20s | %-5lu | %-5li |\n", inet_ntoa(agg[i].addr), agg[i].count, elp);
+        printf("%170s\r", " ");
+        
+        printf("%-20s | %-5lu | %-5li | %-20s | %-20s | %-20s | %-20s | %-20s |\n", 
+            inet_ntoa(agg[i].addr), 
+            agg[i].count, 
+            elp, 
+            agg[i].loc.city, 
+            agg[i].loc.country,
+            agg[i].loc.org,
+            agg[i].loc.region,
+            agg[i].loc.isp);
+
     }
 }
 
@@ -65,7 +76,7 @@ void agg_add(struct in_addr addr)
 
     if (found == 0)
     {
-        if (agg_ix >= AGG_LEN - 1)
+        if (agg_ix > AGG_LEN - 1)
         {
             printf("buffer overflow\n");
             return;
@@ -75,6 +86,16 @@ void agg_add(struct in_addr addr)
         a.addr = addr;
         a.count = 1;
         a.ltime = time(NULL);
+
+        struct addr_loc loc;
+        loc.city[0] = 0;
+        loc.org[0] = 0;
+        loc.country[0] = 0;
+        loc.region[0] = 0;
+        if(ip_api(addr, &loc) == 0) {
+            a.loc = loc;
+        }
+
         agg[agg_ix++] = a;
     }
 }
@@ -115,22 +136,6 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 
 int main()
 {
-    
-    const char http[] =
-"GET /json/24.48.0.1 HTTP/1.1\r\n\
-Host: ip-api.com\r\n\
-Connection: keep-alive\r\n\
-Cache-Control: max-age=0\r\n\
-Upgrade-Insecure-Requests: 1\r\n\
-User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36\r\n\
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\n\
-Accept-Encoding: gzip, deflate\r\n\
-Accept-Language: en,en-US;q=0.9,es;q=0.8\r\n\
-\r\n";
-    
-    get("ip-api.com", http);
-
-    return 0;
 
     printf("\e[1;1H\e[2J");
 
@@ -142,7 +147,9 @@ Accept-Language: en,en-US;q=0.9,es;q=0.8\r\n\
     }
 
     printf("%s\n", dev);
-    printf("%-20s | %-5s | %-5s |\n", "addr", "qty", "time");
+    printf(
+        "%-20s | %-5s | %-5s | %-20s | %-20s | %-20s | %-20s | %-20s |\n", 
+        "addr", "qty", "time", "city", "country", "org", "region", "isp");
 
     bpf_u_int32 net;
     bpf_u_int32 mask;
@@ -169,14 +176,14 @@ Accept-Language: en,en-US;q=0.9,es;q=0.8\r\n\
 
     if (pcap_activate(handle) != 0)
     {
-        fprintf(stderr, "%s", "couldnt pcap activate");
+        fprintf(stderr, "%s", "couldnt activate handle\n");
         return 103;
     }
 
     struct bpf_program compiledExpr;
     if (pcap_compile(handle, &compiledExpr, "", 0, net) == -1)
     {
-        fprintf(stderr, "%s", "Couldnt compile filter");
+        fprintf(stderr, "%s", "Couldnt compile filter\n");
         return 3;
     }
 
