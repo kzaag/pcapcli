@@ -18,7 +18,7 @@ struct ip_agg
     struct addr_loc loc;
 };
 
-#define AGG_LEN 10
+#define AGG_LEN 20
 
 struct ip_agg agg[AGG_LEN];
 size_t agg_ix = 0;
