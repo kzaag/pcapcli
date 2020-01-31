@@ -127,16 +127,7 @@ int ip_api(struct in_addr addr, struct addr_loc * ret) {
         return ERR;
     }
 
-    const char fmt[] = "GET /json/%s HTTP/1.1\r\n\
-Host: ip-api.com\r\n\
-Connection: keep-alive\r\n\
-Cache-Control: max-age=0\r\n\
-Upgrade-Insecure-Requests: 1\r\n\
-User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36\r\n\
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\n\
-Accept-Encoding: gzip, deflate\r\n\
-Accept-Language: en,en-US;q=0.9,es;q=0.8\r\n\
-\r\n";
+    const char fmt[] = "GET /json/%s HTTP/1.1\r\nHost: ip-api.com\r\n\r\n";
     char * addrstr = inet_ntoa(addr);
     char * http = malloc(strlen(fmt) + strlen(addrstr) + 1);
     sprintf(http, fmt, inet_ntoa(addr));

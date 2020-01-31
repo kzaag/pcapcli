@@ -18,7 +18,7 @@ struct ip_agg
     struct addr_loc loc;
 };
 
-#define AGG_LEN 20
+#define AGG_LEN 10
 
 struct ip_agg agg[AGG_LEN];
 size_t agg_ix = 0;
@@ -31,6 +31,21 @@ void agg_sort()
         struct ip_agg key = agg[i];
         int j = i - 1;
         while (j >= 0 && agg[j].ltime < key.ltime)
+        {
+            agg[j + 1] = agg[j];
+            j--;
+        }
+        agg[j + 1] = key;
+    }
+}
+
+void agg_sort_2()
+{
+    for (size_t i = 1; i < agg_ix; i++)
+    {
+        struct ip_agg key = agg[i];
+        int j = i - 1;
+        while (j >= 0 && agg[j].ltime == key.ltime && agg[j].count < key.count)
         {
             agg[j + 1] = agg[j];
             j--;
@@ -76,10 +91,9 @@ void agg_add(struct in_addr addr)
 
     if (found == 0)
     {
-        if (agg_ix > AGG_LEN - 1)
+        if (agg_ix == AGG_LEN - 1)
         {
-            printf("buffer overflow\n");
-            return;
+            agg_ix--;
         }
         //printf("new ip address: %s\n", inet_ntoa(saddr));
         struct ip_agg a;
@@ -129,6 +143,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
     agg_add(saddr);
     agg_add(daddr);
     agg_sort();
+    agg_sort_2();
 
     termgoto(3, 3);
     agg_draw();
@@ -137,26 +152,12 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 int main()
 {
 
-    printf("\e[1;1H\e[2J");
 
     char *dev = pcap_lookupdev(NULL);
     if (dev == NULL)
     {
         fprintf(stderr, "%s", "couldnt lookup device\n");
         return 1;
-    }
-
-    printf("%s\n", dev);
-    printf(
-        "%-20s | %-5s | %-5s | %-20s | %-20s | %-20s | %-20s | %-20s |\n", 
-        "addr", "qty", "time", "city", "country", "org", "region", "isp");
-
-    bpf_u_int32 net;
-    bpf_u_int32 mask;
-    if (pcap_lookupnet(dev, &net, &mask, NULL) == -1)
-    {
-        fprintf(stderr, "%s", "Cant get net and mask for device");
-        return 101;
     }
 
     char errbuff[PCAP_ERRBUF_SIZE];
@@ -178,6 +179,20 @@ int main()
     {
         fprintf(stderr, "%s", "couldnt activate handle\n");
         return 103;
+    }
+
+    printf("\e[1;1H\e[2J");
+    printf("%s\n", dev);
+    printf(
+        "%-20s | %-5s | %-5s | %-20s | %-20s | %-20s | %-20s | %-20s |\n", 
+        "addr", "qty", "time", "city", "country", "org", "region", "isp");
+
+    bpf_u_int32 net;
+    bpf_u_int32 mask;
+    if (pcap_lookupnet(dev, &net, &mask, NULL) == -1)
+    {
+        fprintf(stderr, "%s", "Cant get net and mask for device");
+        return 101;
     }
 
     struct bpf_program compiledExpr;
