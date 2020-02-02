@@ -60,9 +60,9 @@ void agg_draw()
     for (size_t i = 0; i < agg_ix; i++)
     {
         time_t elp = now - agg[i].ltime;
-        printf("%170s\r", " ");
+        printf("%140s\r", " ");
         
-        printf("%-20s | %-5lu | %-5li | %-20s | %-20s | %-20s | %-20s | %-20s |\n", 
+        printf("%-20s\x20%-5lu\x20%-5li\x20%-20s\x20%-20s\x20%-20s\x20%-20s\x20%-20s\n", 
             inet_ntoa(agg[i].addr), 
             agg[i].count, 
             elp, 
@@ -184,7 +184,7 @@ int main()
     printf("\e[1;1H\e[2J");
     printf("%s\n", dev);
     printf(
-        "%-20s | %-5s | %-5s | %-20s | %-20s | %-20s | %-20s | %-20s |\n", 
+        "%-20s\x20%-5s\x20%-5s\x20%-20s\x20%-20s\x20%-20s\x20%-20s\x20%-20s\n", 
         "addr", "qty", "time", "city", "country", "org", "region", "isp");
 
     bpf_u_int32 net;

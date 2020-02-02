@@ -121,6 +121,9 @@ char * mjsonkey(const char * haystack, const char * needle) {
     return ret;
 }
 
+#define GEO_DOMAIN ""
+#define IPAPI_DOMAIN "ip-api.com"
+
 int ip_api(struct in_addr addr, struct addr_loc * ret) {
 
     if(ret == NULL) {
@@ -134,11 +137,10 @@ int ip_api(struct in_addr addr, struct addr_loc * ret) {
 
     char response[RET_SIZE];
 
-    if(get("ip-api.com", http, response, RET_SIZE) != 0) {
+    if(get(IPAPI_DOMAIN, http, response, RET_SIZE) != 0) {
         return ERR;
     }
 
-    char * city = mjsonkey(response, "city");
     char buff[LLEN];
 
     bzero(ret, sizeof(struct addr_loc));
