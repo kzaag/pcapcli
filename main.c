@@ -181,7 +181,7 @@ int main()
         return 103;
     }
 
-    printf("\e[1;1H\e[2J");
+    printf("\033[1;1H\033[2J");
     printf("%s\n", dev);
     printf(
         "%-20s\x20%-5s\x20%-5s\x20%-20s\x20%-20s\x20%-20s\x20%-20s\x20%-20s\n", 
@@ -208,7 +208,7 @@ int main()
         return 4;
     }
 
-    int loopret = pcap_loop(handle, -1, got_packet, NULL);
+    pcap_loop(handle, -1, got_packet, NULL);
 
     pcap_close(handle);
 

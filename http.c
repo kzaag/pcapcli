@@ -57,71 +57,42 @@ int get(const char host[], char fmt[], char * ret, int size) {
 }
 
 int jsonkey(const char * haystack, const char * needle, char * buff, int bsize) {
+
     const char * ktempl = "\"%s\":";
     char * key = malloc(strlen(ktempl) + strlen(needle) + 1);
     sprintf(key, ktempl, needle);
     char * start = strstr(haystack, key);
+
     if(start == NULL) {
-        return ERR;
+        goto retErr;
     }
 
     char * sstart = strchr(start + strlen(key), '"');
     if(sstart == NULL) {
-        return ERR;
+        goto retErr;
     }
 
     sstart++;
 
     char * send = strchr(sstart, '"');
 
-    size_t rlen = send - sstart;
-
     int i = 0;
-    // no need if last character is set to \0
     bzero(buff, bsize);
+
     while(sstart < send && i < bsize - 1) {
         buff[i++] = *sstart;
         sstart++;
     }
-    //buff[i] = 0;
 
+    free(key);
     return 0;
+
+retErr:
+    free(key);
+    return ERR;
+
 }
 
-// remember to free returned buff
-char * mjsonkey(const char * haystack, const char * needle) {
-    const char * ktempl = "\"%s\":";
-    char * key = malloc(strlen(ktempl) + strlen(needle) + 1);
-    sprintf(key, ktempl, needle);
-    char * start = strstr(haystack, key);
-    if(start == NULL) {
-        return NULL;
-    }
-
-    char * sstart = strchr(start + strlen(key), '"');
-    if(sstart == NULL) {
-        return NULL;
-    }
-
-    sstart++;
-
-    char * send = strchr(sstart, '"');
-
-    size_t rlen = send - sstart;
-
-    char * ret = malloc(rlen + 1);
-
-    int i = 0;
-    while(sstart <= send) {
-        ret[i++] = *sstart;
-        sstart++;
-    }
-    ret[rlen] = 0;
-
-    return ret;
-}
-
-#define GEO_DOMAIN ""
 #define IPAPI_DOMAIN "ip-api.com"
 
 int ip_api(struct in_addr addr, struct addr_loc * ret) {
@@ -138,6 +109,7 @@ int ip_api(struct in_addr addr, struct addr_loc * ret) {
     char response[RET_SIZE];
 
     if(get(IPAPI_DOMAIN, http, response, RET_SIZE) != 0) {
+        free(http);
         return ERR;
     }
 
