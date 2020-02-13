@@ -6,19 +6,24 @@
 #include <linux/ip.h>
 #include <arpa/inet.h>
 #include <time.h>
-#include "http.h"
+#include <unistd.h>
+#include <stdlib.h>
+
+#include "main.h"
+
+#define AGG_LEN 20
 
 #define termgoto(x, y) printf("\033[%d;%dH", (y), (x))
 
-struct ip_agg
+struct
 {
-    struct in_addr addr;
-    unsigned long count;
-    time_t ltime;
-    struct addr_loc loc;
-};
+    u_char local;
+} opts;
 
-#define AGG_LEN 20
+void init_opts()
+{
+    opts.local = 0;
+}
 
 struct ip_agg agg[AGG_LEN];
 size_t agg_ix = 0;
@@ -61,17 +66,22 @@ void agg_draw()
     {
         time_t elp = now - agg[i].ltime;
         printf("%140s\r", " ");
-        
-        printf("%-20s\x20%-5lu\x20%-5li\x20%-20s\x20%-20s\x20%-20s\x20%-20s\x20%-20s\n", 
-            inet_ntoa(agg[i].addr), 
-            agg[i].count, 
-            elp, 
-            agg[i].loc.city, 
-            agg[i].loc.country,
-            agg[i].loc.org,
-            agg[i].loc.region,
-            agg[i].loc.isp);
 
+        printf("%-20s\x20%-5lu\x20%-5li",
+               inet_ntoa(agg[i].addr),
+               agg[i].count,
+               elp);
+
+        if(opts.local) {
+            printf("\x20%-20s\x20%-20s\x20%-20s\x20%-20s\x20%-20s",
+               agg[i].loc.city,
+               agg[i].loc.country,
+               agg[i].loc.org,
+               agg[i].loc.region,
+               agg[i].loc.isp);
+        }
+
+        printf("\n");
     }
 }
 
@@ -101,12 +111,14 @@ void agg_add(struct in_addr addr)
         a.count = 1;
         a.ltime = time(NULL);
 
-        struct addr_loc loc;
-        loc.city[0] = 0;
-        loc.org[0] = 0;
-        loc.country[0] = 0;
-        loc.region[0] = 0;
-        if(ip_api(addr, &loc) == 0) {
+        if (opts.local)
+        {
+            struct addr_loc loc;
+            loc.city[0] = 0;
+            loc.org[0] = 0;
+            loc.country[0] = 0;
+            loc.region[0] = 0;
+            ip_api(addr, &loc);
             a.loc = loc;
         }
 
@@ -149,9 +161,23 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
     agg_draw();
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+    init_opts();
+    int o;
 
+    while ((o = getopt(argc, argv, "l")) != -1)
+    {
+        switch (o)
+        {
+        case 'l':
+            opts.local = 1;
+            break;
+        default:
+            printf("Usage: %s [-l] locations\n", argv[0]);
+            exit(1);
+        }
+    }
 
     char *dev = pcap_lookupdev(NULL);
     if (dev == NULL)
@@ -184,8 +210,14 @@ int main()
     printf("\033[1;1H\033[2J");
     printf("%s\n", dev);
     printf(
-        "%-20s\x20%-5s\x20%-5s\x20%-20s\x20%-20s\x20%-20s\x20%-20s\x20%-20s\n", 
-        "addr", "qty", "time", "city", "country", "org", "region", "isp");
+        "%-20s\x20%-5s\x20%-5s",
+        "addr", "qty", "time");
+    if(opts.local) {
+        printf(
+            "\x20%-20s\x20%-20s\x20%-20s\x20%-20s\x20%-20s",
+            "city", "country", "org", "region", "isp");
+    }
+    printf("\n");
 
     bpf_u_int32 net;
     bpf_u_int32 mask;

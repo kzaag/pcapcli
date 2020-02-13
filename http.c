@@ -8,7 +8,8 @@
 #include <errno.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
-#include "http.h"
+
+#include "main.h"
 
 #define ERR 1
 #define RET_SIZE 1024
