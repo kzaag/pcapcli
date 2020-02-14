@@ -1,3 +1,6 @@
+#ifndef MAIN_H
+#define MAIN_H
+
 #include <time.h>
 #include <linux/in.h>
 
@@ -23,3 +26,10 @@ struct ip_agg
     time_t ltime;
     struct addr_loc loc;
 };
+
+struct opt_t
+{
+    u_char local;
+};
+
+#endif

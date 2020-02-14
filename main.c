@@ -10,15 +10,11 @@
 #include <stdlib.h>
 
 #include "main.h"
+#include "tabl.h"
 
 #define AGG_LEN 20
 
-#define termgoto(x, y) printf("\033[%d;%dH", (y), (x))
-
-struct
-{
-    u_char local;
-} opts;
+struct opt_t opts;
 
 void init_opts()
 {
@@ -61,27 +57,19 @@ void agg_sort_2()
 
 void agg_draw()
 {
+    struct opt_t * optr = (struct opt_t*)&opts;
+
+    struct ip_agg * aggptr = NULL;
+
     time_t now = time(NULL);
+
     for (size_t i = 0; i < agg_ix; i++)
     {
-        time_t elp = now - agg[i].ltime;
-        printf("%140s\r", " ");
+        updateb(optr);
 
-        printf("%-20s\x20%-5lu\x20%-5li",
-               inet_ntoa(agg[i].addr),
-               agg[i].count,
-               elp);
+        aggptr = (struct ip_agg*)&agg[i];
 
-        if(opts.local) {
-            printf("\x20%-20s\x20%-20s\x20%-20s\x20%-20s\x20%-20s",
-               agg[i].loc.city,
-               agg[i].loc.country,
-               agg[i].loc.org,
-               agg[i].loc.region,
-               agg[i].loc.isp);
-        }
-
-        printf("\n");
+        printallb(aggptr, optr, now);
     }
 }
 
@@ -152,12 +140,14 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
     daddr.s_addr = ip->daddr;
     //printf("%s ", inet_ntoa(d));
 
+    gotoxy(0, 0);
+    printall((struct opt_t *)&opts);
+
     agg_add(saddr);
     agg_add(daddr);
     agg_sort();
     agg_sort_2();
 
-    termgoto(3, 3);
     agg_draw();
 }
 
@@ -207,18 +197,6 @@ int main(int argc, char *argv[])
         return 103;
     }
 
-    printf("\033[1;1H\033[2J");
-    printf("%s\n", dev);
-    printf(
-        "%-20s\x20%-5s\x20%-5s",
-        "addr", "qty", "time");
-    if(opts.local) {
-        printf(
-            "\x20%-20s\x20%-20s\x20%-20s\x20%-20s\x20%-20s",
-            "city", "country", "org", "region", "isp");
-    }
-    printf("\n");
-
     bpf_u_int32 net;
     bpf_u_int32 mask;
     if (pcap_lookupnet(dev, &net, &mask, NULL) == -1)
@@ -239,6 +217,8 @@ int main(int argc, char *argv[])
         fprintf(stderr, "%s", "couldnt set filter");
         return 4;
     }
+
+    update();
 
     pcap_loop(handle, -1, got_packet, NULL);
 
