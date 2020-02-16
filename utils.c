@@ -1,36 +1,36 @@
 
 #include <arpa/inet.h>
 #include "main.h"
-#include "tabl.h"
+#include "utils.h"
 
 // print packet header - basic info
 //
-void hprint()
+void tprinth()
 {
     printf("%-20s\x20%-5s\x20%-5s",
            "addr", "qty", "time");
 }
 
-void lprint()
+void tprintl()
 {
     printf(
         "\x20%-20s\x20%-20s\x20%-20s",
         "city", "country", "org");
 }
 
-void printall(struct opt_t *opts)
+void tprintall(struct optbuff * opt)
 {
-    hprint();
+    tprinth();
 
-    if (opts->local)
+    if (opt->localization)
     {
-        lprint();
+        tprintl();
     }
 
     printf("\n");
 }
 
-void hprintb(const struct ip_agg *agg, const time_t rel)
+void tprinthb(const struct ip_agg *agg, const time_t rel)
 {
     time_t elp = rel - agg->ltime;
     printf("%-20s\x20%-5lu\x20%-5li",
@@ -39,7 +39,7 @@ void hprintb(const struct ip_agg *agg, const time_t rel)
            elp);
 }
 
-void lprintb(const struct addr_loc *loc)
+void tprintlb(const struct addr_loc *loc)
 {
     printf("\x20%-20s\x20%-20s\x20%-20s",
            loc->city,
@@ -48,26 +48,23 @@ void lprintb(const struct addr_loc *loc)
 }
 
 // clean row before rewriting it
-void updateb(const struct opt_t *opts)
+void tupdateb(struct optbuff * opt)
 {
     printf("%s32", " ");
-    if (opts->local)
+    if (opt->localization)
     {
         printf("%s43", " ");
     }
     printf("\r");
 }
 
-void printallb(
-    const struct ip_agg *agg,
-    const struct opt_t *opts,
-    const time_t rel)
+void tprintallb(const struct ip_agg *agg, const time_t rel, struct optbuff * opt)
 {
-    hprintb(agg, rel);
+    tprinthb(agg, rel);
 
-    if (opts->local)
+    if (opt->localization)
     {
-        lprintb((struct addr_loc *)&agg->loc);
+        tprintlb((struct addr_loc *)&agg->loc);
     }
 
     printf("\n");

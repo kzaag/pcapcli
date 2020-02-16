@@ -10,19 +10,16 @@
 #include <stdlib.h>
 
 #include "main.h"
-#include "tabl.h"
+#include "utils.h"
+#include "http.h"
+
+struct optbuff opt;
 
 #define AGG_LEN 20
-
-struct opt_t opts;
-
-void init_opts()
-{
-    opts.local = 0;
-}
-
 struct ip_agg agg[AGG_LEN];
 size_t agg_ix = 0;
+
+static char err[PCAP_ERRBUF_SIZE];
 
 // insertion sort agg
 void agg_sort()
@@ -57,7 +54,6 @@ void agg_sort_2()
 
 void agg_draw()
 {
-    struct opt_t * optr = (struct opt_t*)&opts;
 
     struct ip_agg * aggptr = NULL;
 
@@ -65,11 +61,11 @@ void agg_draw()
 
     for (size_t i = 0; i < agg_ix; i++)
     {
-        updateb(optr);
+        tupdateb(&opt);
 
         aggptr = (struct ip_agg*)&agg[i];
 
-        printallb(aggptr, optr, now);
+        tprintallb(aggptr, now, &opt);
     }
 }
 
@@ -99,13 +95,9 @@ void agg_add(struct in_addr addr)
         a.count = 1;
         a.ltime = time(NULL);
 
-        if (opts.local)
+        if (opt.localization)
         {
             struct addr_loc loc;
-            loc.city[0] = 0;
-            loc.org[0] = 0;
-            loc.country[0] = 0;
-            loc.region[0] = 0;
             ip_api(addr, &loc);
             a.loc = loc;
         }
@@ -114,34 +106,44 @@ void agg_add(struct in_addr addr)
     }
 }
 
-void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
+struct iphdr* pckt_ip(const u_char *packet, bpf_u_int32 len, u_char *args)
 {
-    bpf_u_int32 caplen = header->caplen;
     struct ethhdr *h = (struct ethhdr *)packet;
     struct iphdr *ip;
 
     if (ntohs(h->h_proto) != ETH_P_IP)
     {
-        return;
+        return NULL;
     }
 
-    if (caplen < (sizeof(struct ethhdr) + sizeof(struct iphdr)))
+    if (len < (sizeof(struct ethhdr) + sizeof(struct iphdr)))
     {
-        return;
+        return NULL;
     }
 
     ip = (struct iphdr *)(packet + sizeof(struct ethhdr));
 
+    return ip;
+}
+
+void pckt_next(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
+{
+    bpf_u_int32 caplen = header->caplen;
+    
+    struct iphdr * ip = pckt_ip(packet, caplen, args);
+
+    if(ip == NULL) {
+        return;
+    }
+
     struct in_addr saddr;
     saddr.s_addr = ip->saddr;
-    //printf("%s ", inet_ntoa(s));
 
     struct in_addr daddr;
     daddr.s_addr = ip->daddr;
-    //printf("%s ", inet_ntoa(d));
 
-    gotoxy(0, 0);
-    printall((struct opt_t *)&opts);
+    tgotoxy(0, 0);
+    tprintall(&opt);
 
     agg_add(saddr);
     agg_add(daddr);
@@ -151,9 +153,38 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
     agg_draw();
 }
 
-int main(int argc, char *argv[])
+int device_ip(const char * device, struct in_addr * addr) {
+    
+    pcap_if_t * devs;
+    int ret = 0;
+    if((ret = pcap_findalldevs(&devs, err)) != 0)
+        return ret;
+
+    for(pcap_if_t *d=devs; d!=NULL; d=d->next) {
+        
+        if(strcmp(d->name, device)) {
+            continue;
+        }
+
+        for(pcap_addr_t *a=d->addresses; a!=NULL; a=a->next) {
+
+            if(a->addr->sa_family != AF_INET) {
+                continue;
+            }
+
+            addr->s_addr = ((struct sockaddr_in*)a->addr)->sin_addr.s_addr;
+            return 0;
+        
+        }
+    } 
+
+    return 1;
+}
+
+int configure(int argc, char *argv[], char * device) 
 {
-    init_opts();
+    opt.localization = 0;
+
     int o;
 
     while ((o = getopt(argc, argv, "l")) != -1)
@@ -161,14 +192,28 @@ int main(int argc, char *argv[])
         switch (o)
         {
         case 'l':
-            opts.local = 1;
+            opt.localization = 1;
             break;
         default:
-            printf("Usage: %s [-l] locations\n", argv[0]);
-            exit(1);
+            printf("Usage: %s [-l] with localization\n", argv[0]);
+            return 1;
         }
     }
 
+    struct in_addr addr;
+    if(device_ip(device, &addr) != 0){
+        fprintf(stderr, "%s", "couldnt get ip address\n");
+        return 15;
+    }
+
+    opt.addr = addr;
+    opt.dev = device;
+
+    return 0;
+}
+
+int main(int argc, char *argv[])
+{
     char *dev = pcap_lookupdev(NULL);
     if (dev == NULL)
     {
@@ -176,10 +221,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    if(configure(argc, argv, dev) != 0) {
+        exit(1);
+    }
+
     char errbuff[PCAP_ERRBUF_SIZE];
-    //pcap_t * handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuff);
-    pcap_t *handle = pcap_create(dev, errbuff);
-    if (handle == NULL)
+    pcap_t *handle;
+    
+    if ((handle = pcap_create(dev, errbuff)) == NULL)
     {
         fprintf(stderr, "Cant open device. reason: %s", errbuff);
         return 2;
@@ -218,9 +267,10 @@ int main(int argc, char *argv[])
         return 4;
     }
 
-    update();
+    // clean screen
+    tclean();
 
-    pcap_loop(handle, -1, got_packet, NULL);
+    pcap_loop(handle, -1, pckt_next, NULL);
 
     pcap_close(handle);
 

@@ -1,1 +1,1 @@
-gcc -o pcapcli http.c main.c tabl.c -lpcap -Wall -Wpedantic
+gcc -o pcapcli http.c main.c utils.c -lpcap -Wall -Wpedantic
