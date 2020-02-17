@@ -4,6 +4,8 @@
 #include <string.h>
 #include <linux/if_ether.h>
 #include <linux/ip.h>
+#include <linux/tcp.h>
+#include <linux/udp.h>
 #include <arpa/inet.h>
 #include <time.h>
 #include <unistd.h>
@@ -55,7 +57,7 @@ void agg_sort_2()
 void agg_draw()
 {
 
-    struct ip_agg * aggptr = NULL;
+    //struct ip_agg * aggptr = NULL;
 
     time_t now = time(NULL);
 
@@ -63,47 +65,100 @@ void agg_draw()
     {
         tupdateb(&opt);
 
-        aggptr = (struct ip_agg*)&agg[i];
+        //aggptr = (struct u_ip_agg*)&agg[i];
 
-        tprintallb(aggptr, now, &opt);
+        tprintallb(&agg[i], now, &opt);
     }
 }
 
-void agg_add(struct in_addr addr)
+int agg_equal(
+    struct ip_agg * agg, 
+    struct in_addr src, 
+    struct in_addr dst, 
+    u_char iproto, 
+    void *hdr) 
 {
-    u_char found = 0;
+    struct ip_agg a = *agg; 
+    if(a.count == -1) {
+        exit(0);
+    }
+    if( (src.s_addr != agg->srcaddr.s_addr) || (dst.s_addr != agg->dstaddr.s_addr) || (agg->proto != iproto)) {
+        return 0;
+    }
+
+    // at this point both addesses and proto must be equal
+
+    if(iproto == 6 && opt.portgrp) {
+
+        struct tcphdr * tcph = (struct tcphdr *)hdr;
+
+        if(tcph->dest != agg->protobuff.tcpudp.dstport || tcph->source != agg->protobuff.tcpudp.srcport) {
+            return 0;
+        }
+
+    }
+
+    return 1;
+}
+
+void agg_creat(
+    struct in_addr src, 
+    struct in_addr dst, 
+    u_char iproto, 
+    void *hdr) 
+{
+    if (agg_ix == AGG_LEN - 1)
+        agg_ix--;
+    
+    struct ip_agg a;
+    a.srcaddr = src;
+    a.dstaddr = dst;
+    a.count = 1;
+    a.proto = iproto;
+    a.ltime = time(NULL);
+
+    if(iproto == 6 && opt.portgrp) {
+
+        struct tcphdr * tcph = (struct tcphdr *)hdr;
+        a.protobuff.tcpudp.dstport = tcph->dest;
+        a.protobuff.tcpudp.srcport = tcph->source;
+
+    }
+
+    if (opt.localization)
+    {
+        struct addr_loc loc;
+
+        // take address from pair {src, dst} which isnt local 
+        // and try to geolocalize it. 
+        if(opt.addr.s_addr == src.s_addr) {
+            ip_api(dst, &loc);
+        } else {
+            ip_api(src, &loc);
+        }
+        a.loc = loc;
+    }
+
+    agg[agg_ix++] = a;
+}
+
+void agg_add(struct in_addr src, struct in_addr dst, u_char iproto, void * hdr)
+{
     for (size_t i = 0; i < agg_ix; i++)
     {
-        struct ip_agg a = agg[i];
-        if (a.addr.s_addr == addr.s_addr)
-        {
+
+        if(agg_equal(agg + i, src, dst, iproto, hdr)) {
+            
             (agg[i].count)++;
             (agg[i].ltime) = time(NULL);
-            found = 1;
+            
+            return;
+
         }
+
     }
 
-    if (found == 0)
-    {
-        if (agg_ix == AGG_LEN - 1)
-        {
-            agg_ix--;
-        }
-        //printf("new ip address: %s\n", inet_ntoa(saddr));
-        struct ip_agg a;
-        a.addr = addr;
-        a.count = 1;
-        a.ltime = time(NULL);
-
-        if (opt.localization)
-        {
-            struct addr_loc loc;
-            ip_api(addr, &loc);
-            a.loc = loc;
-        }
-
-        agg[agg_ix++] = a;
-    }
+    agg_creat(src, dst, iproto, hdr);
 }
 
 struct iphdr* pckt_ip(const u_char *packet, bpf_u_int32 len, u_char *args)
@@ -126,29 +181,86 @@ struct iphdr* pckt_ip(const u_char *packet, bpf_u_int32 len, u_char *args)
     return ip;
 }
 
+struct tcphdr * pckt_tcp(const u_char *packet, bpf_u_int32 packetlen, bpf_u_int32 offset, u_char *args) 
+{
+    if(packetlen < (sizeof(struct tcphdr) + offset)) {
+        return NULL;
+    }
+
+    struct tcphdr *tcp;
+
+    tcp = (struct tcphdr *)(packet + offset);
+
+    return tcp;
+}
+
+struct udphdr * pckt_udp(const u_char *packet, bpf_u_int32 packetlen, bpf_u_int32 offset, u_char *args) 
+{
+    if(packetlen < (sizeof(struct udphdr) + offset)) {
+        return NULL;
+    }
+
+    struct udphdr * udp;
+
+    udp = (struct udphdr *)(packet + offset);
+
+    return udp;
+}
+
 void pckt_next(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
     bpf_u_int32 caplen = header->caplen;
     
-    struct iphdr * ip = pckt_ip(packet, caplen, args);
+    struct iphdr * ip;
 
-    if(ip == NULL) {
+    if((ip = pckt_ip(packet, caplen, args)) == NULL)
         return;
+
+    if(ip->version != 4) {
+        // ignoring ipv6 for now
+        return;  
+    } 
+
+    int iptl = (sizeof(struct iphdr) + sizeof(struct ethhdr));
+    if(ip->ihl > 5) {
+        iptl += 4*(ip->ihl - 5);
     }
 
-    struct in_addr saddr;
-    saddr.s_addr = ip->saddr;
+    struct in_addr srcip, destip;
 
-    struct in_addr daddr;
-    daddr.s_addr = ip->daddr;
+    srcip.s_addr = ip->saddr;
+    destip.s_addr = ip->daddr;
+
+    // if localization is enabled gotta blacklist localization ip ; otherwise lots of spam is gonna happen.
+    if(opt.localization) {
+        in_addr_t ignoreip = 24141776;//3495915521;
+        if(srcip.s_addr == ignoreip || destip.s_addr == ignoreip) {
+            return;
+        }
+    }
+
+    u_char iproto = ip->protocol;
+
+    if(iproto == 6) {
+
+        struct tcphdr * tcp = NULL;
+        if((tcp = pckt_tcp(packet, caplen, iptl, args)) == NULL) {
+            return;
+        }
+
+        agg_add(srcip, destip, iproto, tcp);
+
+    } else if(iproto == 17) {
+
+        // udp
+
+    }
+
+    agg_sort();
+    agg_sort_2();
 
     tgotoxy(0, 0);
     tprintall(&opt);
-
-    agg_add(saddr);
-    agg_add(daddr);
-    agg_sort();
-    agg_sort_2();
 
     agg_draw();
 }
@@ -184,18 +296,22 @@ int device_ip(const char * device, struct in_addr * addr) {
 int configure(int argc, char *argv[], char * device) 
 {
     opt.localization = 0;
+    opt.portgrp = 0;
 
     int o;
 
-    while ((o = getopt(argc, argv, "l")) != -1)
+    while ((o = getopt(argc, argv, "lp")) != -1)
     {
         switch (o)
         {
         case 'l':
             opt.localization = 1;
             break;
+        case 'p':
+            opt.portgrp = 1;
+            break;
         default:
-            printf("Usage: %s [-l] with localization\n", argv[0]);
+            printf("Usage: %s [-l] with localization [-p] with port grouping\n", argv[0]);
             return 1;
         }
     }
@@ -234,7 +350,11 @@ int main(int argc, char *argv[])
         return 2;
     }
 
-    if (pcap_set_snaplen(handle, 34) != 0)
+    if (pcap_set_snaplen(handle, 
+        sizeof(struct ethhdr) // eth
+        +sizeof(struct iphdr)+40 // ip
+        +sizeof(struct tcphdr)
+        ) != 0)
     {
         fprintf(stderr, "%s", "couldnt set snaplen\n");
         return 102;

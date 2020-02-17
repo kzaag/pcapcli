@@ -15,7 +15,7 @@ void tprintl();
 
 void tprintall(struct optbuff * opt);
 
-void tprinthb(const struct ip_agg *agg, const time_t rel);
+void tprinthb(const struct ip_agg *agg, const time_t rel, struct optbuff * opt);
 
 void tprintlb(const struct addr_loc *loc);
 
