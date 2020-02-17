@@ -1,7 +1,7 @@
-[ number, origin, ... ] for ip packages passing throught network interface
+generating packet aggregates
 
-0. make sure you installed pcap ( with dev version )
+0. apt install libpcap-dev # deb
 
-1. run build.sh that will generate you executable pcapcli
+1. bash build.sh
 
-if you didnt give current user explicit permission to access network interface then remember to run it with sudo.
+2. ./pcapcli # user should realize that this might fail if run without needed permissions ( like sudo )
