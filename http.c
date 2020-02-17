@@ -8,7 +8,8 @@
 #include <errno.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
-#include "http.h"
+
+#include "main.h"
 
 #define ERR 1
 #define RET_SIZE 1024
@@ -25,10 +26,9 @@ int get(const char host[], char fmt[], char * ret, int size) {
     h = gethostbyname(host);
 
     struct sockaddr_in addr;
-    //memset(&addr,0,sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(80);
-    addr.sin_addr = *((struct in_addr *) h->h_addr);
+    addr.sin_addr = *((struct in_addr *) h->h_addr_list[0]);
     bzero(&(addr.sin_zero), 8);
     
     if (connect(tcp, (struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1) {
@@ -77,28 +77,27 @@ int jsonkey(const char * haystack, const char * needle, char * buff, int bsize) 
     char * send = strchr(sstart, '"');
 
     int i = 0;
-    bzero(buff, bsize);
 
-    while(sstart < send && i < bsize - 1) {
+    while(sstart < send && i < bsize) {
         buff[i++] = *sstart;
         sstart++;
     }
+
+    buff[bsize-1] = 0;
 
     free(key);
     return 0;
 
 retErr:
     free(key);
-    return ERR;
+    return 1;
 
 }
-
-#define IPAPI_DOMAIN "ip-api.com"
 
 int ip_api(struct in_addr addr, struct addr_loc * ret) {
 
     if(ret == NULL) {
-        return ERR;
+        return 1;
     }
 
     const char fmt[] = "GET /json/%s HTTP/1.1\r\nHost: ip-api.com\r\n\r\n";
@@ -108,34 +107,26 @@ int ip_api(struct in_addr addr, struct addr_loc * ret) {
 
     char response[RET_SIZE];
 
-    if(get(IPAPI_DOMAIN, http, response, RET_SIZE) != 0) {
+    if(get("ip-api.com", http, response, RET_SIZE) != 0) {
         free(http);
-        return ERR;
+        return 1;
     }
 
     char buff[LLEN];
 
     bzero(ret, sizeof(struct addr_loc));
 
-    if (jsonkey(response, "country", buff, LLEN) == 0) {
-        strcpy(ret->country, buff);
-    }
+    bzero(buff, LLEN);
+    jsonkey(response, "country", buff, LLEN);
+    strcpy(ret->country, buff);
  
-    if (jsonkey(response, "city", buff, LLEN) == 0) {
-        strcpy(ret->city, buff);
-    }
+    bzero(buff, LLEN);
+    jsonkey(response, "city", buff, LLEN);
+    strcpy(ret->city, buff);
 
-    if (jsonkey(response, "regionName", buff, LLEN) == 0) {
-        strcpy(ret->region, buff);
-    }
-
-    if (jsonkey(response, "org", buff, LLEN) == 0) {
-        strcpy(ret->org, buff);
-    }
-
-    if (jsonkey(response, "isp", buff, LLEN) == 0) {
-        strcpy(ret->isp, buff);
-    }
+    bzero(buff, LLEN);
+    jsonkey(response, "org", buff, LLEN);
+    strcpy(ret->org, buff);
 
     free(http);
 
