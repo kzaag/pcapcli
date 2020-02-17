@@ -4,11 +4,9 @@
 #include "main.h"
 #include "utils.h"
 
-// print packet header - basic info
-//
 void tprinth()
 {
-    printf("%-34s %-5s %-5s %-30s",
+    printf("%-34s %-5s %-5s %-20s",
            "ADDR", 
                  "QTY", 
                       "TIME", 
@@ -72,17 +70,39 @@ void tprinthb(const struct ip_agg *agg, const time_t rel, struct optbuff * opt)
 
     printf(" %-5lu %-5li", agg->count, elp);
 
-    char proto[30];
-    bzero(proto, 30);
+    char proto[20];
+    bzero(proto, 20);
 
-    if(agg->proto == 6) {
+    if(agg->proto >= 0) {
         
-        char porti[18];
-        
-        if(opt->portgrp) {
-            sprintf(porti, "tcp %u -> %u", ntohs(agg->protobuff.tcpudp.srcport), ntohs(agg->protobuff.tcpudp.dstport));
+        char porti[20];
+
+        char spec[5];
+
+        if(agg->proto == 6) {
+
+            sprintf(spec, "tcp");
+
+        } else if(agg->proto == 17) {
+
+            sprintf(spec, "udp");
+
         } else {
-            sprintf(porti, "tcp");
+
+            sprintf(spec, "%u", agg->proto);
+
+        }
+
+        spec[4] = 0;
+        
+        if(opt->portgrp && (agg->proto == 6 || agg->proto == 17)) {
+
+            sprintf(porti, "%s %u -> %u", spec, ntohs(agg->protobuff.tcpudp.srcport), ntohs(agg->protobuff.tcpudp.dstport));
+
+        } else {
+
+            sprintf(porti, "%s", spec);
+
         }
 
 
@@ -90,7 +110,7 @@ void tprinthb(const struct ip_agg *agg, const time_t rel, struct optbuff * opt)
 
     }
 
-    printf(" %-30s", proto);
+    printf(" %-20s", proto);
 
 }
 
@@ -105,7 +125,7 @@ void tprintlb(const struct addr_loc *loc)
 // clean row before rewriting it
 void tupdateb(struct optbuff * opt)
 {
-    printf("%s32", " ");
+    printf("%s60", " ");
     if (opt->localization)
     {
         printf("%s43", " ");

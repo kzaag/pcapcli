@@ -9,6 +9,9 @@
 
 #define tgotoxy(x, y) printf("\033[%d;%dH", x, y)
 
+#define tsetnowrap() printf("\033[?7l")
+#define tsetwrap printf("\033[?7h")
+
 void tprinth();
 
 void tprintl();
