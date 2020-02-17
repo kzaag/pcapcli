@@ -75,14 +75,36 @@ void tprinthb(const struct ip_agg *agg, const time_t rel, struct optbuff * opt)
     char proto[30];
     bzero(proto, 30);
 
-    if(agg->proto == 6) {
+    if(agg->proto >= 0) {
         
-        char porti[18];
-        
-        if(opt->portgrp) {
-            sprintf(porti, "tcp %u -> %u", ntohs(agg->protobuff.tcpudp.srcport), ntohs(agg->protobuff.tcpudp.dstport));
+        char porti[20];
+
+        char spec[5];
+
+        if(agg->proto == 6) {
+
+            sprintf(spec, "tcp");
+
+        } else if(agg->proto == 17) {
+
+            sprintf(spec, "udp");
+
         } else {
-            sprintf(porti, "tcp");
+
+            sprintf(spec, "%u", agg->proto);
+
+        }
+
+        spec[4] = 0;
+        
+        if(opt->portgrp && (agg->proto == 6 || agg->proto == 17)) {
+
+            sprintf(porti, "%s %u -> %u", spec, ntohs(agg->protobuff.tcpudp.srcport), ntohs(agg->protobuff.tcpudp.dstport));
+
+        } else {
+
+            sprintf(porti, "%s", spec);
+
         }
 
 

@@ -88,15 +88,27 @@ int agg_equal(
 
     // at this point both addesses and proto must be equal
 
-    if(iproto == 6 && opt.portgrp) {
+    if(opt.portgrp && hdr != NULL) {
+        
+        if(iproto == 6){
 
-        struct tcphdr * tcph = (struct tcphdr *)hdr;
+            struct tcphdr * tcph = (struct tcphdr *)hdr;
 
-        if(tcph->dest != agg->protobuff.tcpudp.dstport || tcph->source != agg->protobuff.tcpudp.srcport) {
-            return 0;
+            if(tcph->dest != agg->protobuff.tcpudp.dstport || tcph->source != agg->protobuff.tcpudp.srcport) {
+                return 0;
+            }
+
+        } else if(iproto == 17) {
+
+            struct udphdr * udph = (struct udphdr *)hdr;
+
+            if(udph->dest != agg->protobuff.tcpudp.dstport || udph->source != agg->protobuff.tcpudp.srcport) {
+                return 0;
+            }
+
         }
-
     }
+
 
     return 1;
 }
@@ -117,13 +129,24 @@ void agg_creat(
     a.proto = iproto;
     a.ltime = time(NULL);
 
-    if(iproto == 6 && opt.portgrp) {
+    if(opt.portgrp && hdr != NULL) {
 
-        struct tcphdr * tcph = (struct tcphdr *)hdr;
-        a.protobuff.tcpudp.dstport = tcph->dest;
-        a.protobuff.tcpudp.srcport = tcph->source;
+        if(iproto == 6){
+
+            struct tcphdr * tcph = (struct tcphdr *)hdr;
+            a.protobuff.tcpudp.dstport = tcph->dest;
+            a.protobuff.tcpudp.srcport = tcph->source;
+
+        } else if(iproto == 17) {
+
+            struct udphdr * udp = (struct udphdr *)hdr;
+            a.protobuff.tcpudp.dstport = udp->dest;
+            a.protobuff.tcpudp.srcport = udp->source;
+
+        }
 
     }
+
 
     if (opt.localization)
     {
@@ -243,7 +266,7 @@ void pckt_next(u_char *args, const struct pcap_pkthdr *header, const u_char *pac
 
     if(iproto == 6) {
 
-        struct tcphdr * tcp = NULL;
+        struct tcphdr * tcp;
         if((tcp = pckt_tcp(packet, caplen, iptl, args)) == NULL) {
             return;
         }
@@ -252,7 +275,16 @@ void pckt_next(u_char *args, const struct pcap_pkthdr *header, const u_char *pac
 
     } else if(iproto == 17) {
 
-        // udp
+        struct udphdr * udp;
+        if((udp = pckt_udp(packet, caplen, iptl, args)) == NULL) {
+            return;
+        }
+
+        agg_add(srcip, destip, iproto, udp);
+
+    } else {
+
+        agg_add(srcip, destip, iproto, NULL);
 
     }
 
