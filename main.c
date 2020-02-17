@@ -362,6 +362,7 @@ int configure(int argc, char *argv[], char * device)
 
 int main(int argc, char *argv[])
 {
+
     char *dev = pcap_lookupdev(NULL);
     if (dev == NULL)
     {
@@ -419,8 +420,8 @@ int main(int argc, char *argv[])
         return 4;
     }
 
-    // clean screen
     tclean();
+    tsetnowrap();
 
     pcap_loop(handle, -1, pckt_next, NULL);
 
