@@ -112,7 +112,7 @@ int ip_api(struct in_addr addr, struct addr_loc * ret) {
         return 1;
     }
 
-    char buff[LLEN];
+    char buff[ISPLEN];
 
     bzero(ret, sizeof(struct addr_loc));
 
@@ -124,9 +124,9 @@ int ip_api(struct in_addr addr, struct addr_loc * ret) {
     jsonkey(response, "city", buff, LLEN);
     strcpy(ret->city, buff);
 
-    bzero(buff, LLEN);
-    jsonkey(response, "org", buff, LLEN);
-    strcpy(ret->org, buff);
+    bzero(buff, ISPLEN);
+    jsonkey(response, "isp", buff, ISPLEN);
+    strcpy(ret->isp, buff);
 
     free(http);
 
