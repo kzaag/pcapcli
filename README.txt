@@ -46,7 +46,3 @@ EXAMPLES
         group by ip address pairs of ip packets and underlying protocols
     ./pcapcli -pu 
         group by protocol and port pairs ( if tcp | udp packet ) 
-
-COPYRIGHT
-
-    its all MIT
