@@ -88,7 +88,7 @@ getprotow()
 
     // 00000 -> 00000 
     //   5    4    5 
-    if((opt.grp_tu & port) != 0) {
+    if((opt.grp & tu_port) != 0) {
         protow = 14;
     }
 
@@ -190,7 +190,7 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
     
     printf(" ");
 
-    if(opt.grp_tu & port) {
+    if(opt.grp & tu_port) {
 
         snprintf(pbuff, 5, "%d", ntohs(agg->protobuff.tcpudp.srcport));
         printf("%5.5s -> ", pbuff);
@@ -245,7 +245,7 @@ agg_equals(
         return 0;
     }
 
-    if(opt.grp_tu & port) {
+    if(opt.grp & tu_port) {
 
         if(src_agg->proto == 6 || src_agg->proto == 17) {
 
@@ -495,28 +495,46 @@ int configure(int argc, char *argv[], char * device)
 {
     opt.localization = 0;
     opt.grp = 0;
-    opt.grp_tu = 0;
 
     int o;
 
-    while ((o = getopt(argc, argv, "lg:t:u:")) != -1)
+    u_char force = 0;
+
+    while ((o = getopt(argc, argv, "?liepuf")) != -1)
     {
         switch (o)
         {
         case 'l':
             opt.localization = 1;
             break;
-        case 'g':
-            opt.grp = atoi(optarg);
+        case 'i':
+            opt.grp |= ip;
             break;
-        case 't':
+        case 'e':
+            opt.grp |= (ip | ip_ext);
+        case 'p':
+            opt.grp |= (proto);
+            break;
         case 'u':
-            opt.grp_tu  = atoi(optarg);
+            opt.grp |= tu_port;
             break;
+        case 'f':
+            force = 1;
+            break;
+        case '?':
         default:
-            printf("Usage: %s [-l] with localization [-g] basic grouping [-t/-u] tcp/udp grouping options\n", argv[0]);
+            printf("See README.txt for usage\n");
             return 1;
         }
+    }
+
+    if(!force) {
+        
+        if(opt.localization && opt.grp > 1) {
+            printf("User specified localization with alot group by options.\nThat could cause a flood of http requests to geolocalization api\nIf you know what you are doing use -f (force) flag\n");
+            return 1;
+        }
+
     }
 
     struct in_addr addr;

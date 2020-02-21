@@ -56,11 +56,8 @@ struct ip_agg
 enum grp {
     ip      = 1,
     ip_ext  = 2,
-    proto   = 4
-};
-
-enum grp_tu {
-    port = 1
+    proto   = 4,
+    tu_port = 8
 };
 
 struct optbuff {
@@ -72,8 +69,6 @@ struct optbuff {
     struct in_addr addr;
 
     enum grp grp; 
-
-    enum grp_tu grp_tu;
 
     // download extra localization data about ip packets
     u_char localization : 1;
