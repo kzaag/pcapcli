@@ -7,3 +7,5 @@
     do not refresh io each request because performance hurts.
 [ ] add proper entry to linux man and properly handle -? option
 [ ] dont display columns if group by is not specified
+[ ] try to get pid / name of process responsible for
+    connection ( ex. listen port )
