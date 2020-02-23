@@ -69,6 +69,9 @@ struct optbuff {
     // interface address
     struct in_addr addr;
 
+    char * squery;
+    
+    // group by options
     enum grp grp; 
 
     // download extra localization data about ip packets

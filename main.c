@@ -17,6 +17,9 @@
 
 struct optbuff opt;
 
+#define SQLEN 100
+char squery[SQLEN];
+
 #define AGG_LEN 20
 struct ip_agg agg_buff[AGG_LEN];
 size_t agg_ix = 0;
@@ -568,12 +571,14 @@ int configure(int argc, char *argv[], char * device)
 {
     opt.localization = 0;
     opt.grp = 0;
+    bzero(squery, SQLEN);
+    opt.squery = squery;
 
     int o;
 
     u_char force = 0;
 
-    while ((o = getopt(argc, argv, "?liepsdf")) != -1)
+    while ((o = getopt(argc, argv, "?liepsdfq:")) != -1)
     {
         switch (o)
         {
@@ -596,6 +601,9 @@ int configure(int argc, char *argv[], char * device)
             break;
         case 'f':
             force = 1;
+            break;
+        case 'q':
+            strncpy(squery, optarg, SQLEN);
             break;
         case '?':
         default:
@@ -649,9 +657,9 @@ int main(int argc, char *argv[])
     }
 
     if (pcap_set_snaplen(handle, 
-        sizeof(struct ethhdr) // eth
+        sizeof(struct ethhdr)    // eth
         +sizeof(struct iphdr)+40 // ip
-        +sizeof(struct tcphdr)
+        +sizeof(struct tcphdr)   // tcp-hdr ( udp should be included - ports )
         ) != 0)
     {
         fprintf(stderr, "%s", "couldnt set snaplen\n");
@@ -673,7 +681,7 @@ int main(int argc, char *argv[])
     }
 
     struct bpf_program compiledExpr;
-    if (pcap_compile(handle, &compiledExpr, "", 0, net) == -1)
+    if (pcap_compile(handle, &compiledExpr, opt.squery, SQLEN, net) == -1)
     {
         fprintf(stderr, "%s", "Couldnt compile filter\n");
         return 3;

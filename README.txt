@@ -3,7 +3,7 @@ NAME
 
 SYNOPSIS
     pcapcli -?
-    pcapcli [OPTIONS]
+    pcapcli [OPTIONS] [-q query]
 
 DESCRIPTION
     
@@ -13,9 +13,11 @@ DESCRIPTION
     -i    group results by ip
     -e    group results by srcip - dstip pairs ( this will override -i option )
     -p    group by ip.protocol
-    -d    group by source tcp/udp port
-    -t    group by target tcp/udp port
+    -s    group by source tcp/udp port
+    -d    group by target tcp/udp port
     -f    force execution and suppress any warnings / errors
+
+    -q    pcap filter query
 
     returned columns:
 
@@ -29,7 +31,7 @@ DESCRIPTION
         last time of detecting packet in seconds.
     PROTO
         underlying ip protocol ( like tcp )
-    PROTOB
+    PB
         additional proto data ( like port )
 
     data is ordered by LTIME, SIZE;
@@ -45,5 +47,7 @@ EXAMPLES
     ./pcapcli -iep
     ./pcapcli -ep
         group by ip address pairs of ip packets and underlying protocols
-    ./pcapcli -pdt
+    ./pcapcli -psd
         group by protocol and port pairs ( if tcp | udp packet ) 
+    ./pcapcli -q tcp dest port 443
+        only packages with dst port = 443
