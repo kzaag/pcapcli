@@ -10,8 +10,9 @@ DESCRIPTION
     generating simple analitic cube ( number, last time, total size transfered ) of ip packets
 
     -l    add localization
-    -i    group results by ip
-    -e    group results by srcip - dstip pairs ( this will override -i option )
+    -i    group results by source ip address
+    -e    group results by des ip address
+          if both -i and -e flags are specified results will be grouped by srcip-dstip pairs
     -p    group by ip.protocol
     -s    group by source tcp/udp port
     -d    group by target tcp/udp port

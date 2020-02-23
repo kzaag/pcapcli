@@ -54,9 +54,9 @@ struct ip_agg
 };
 
 enum grp {
-    ip      = 1,
-    ip_ext  = 2,
-    proto   = 4,
+    srcaddr     = 1,
+    dstaddr     = 2,
+    proto       = 4,
     tu_src_port = 8,
     tu_dst_port = 16
 };

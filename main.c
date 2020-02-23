@@ -63,20 +63,29 @@ agg_sort_2()
 int 
 getaddrw() 
 {
+    int addrw = 0; //6;
 
-    int addrw = 6;
+    // 000.000.000.000 
+    //  3 1 3 1 3 1 3  = 15 chars
 
-    if((opt.grp & ip_ext) != 0) {
+    // {ip} -> {ip}
+    //  15   4  15  = 34 chars
 
-        // {ip} -> {ip}
-        //  15   4  15  = 34 chars
-        addrw = 34;
+    if(opt.grp & srcaddr) {
 
-    } else if((opt.grp & ip) != 0) {
+        addrw += 15;
 
-        // 000.000.000.000 
-        //  3 1 3 1 3 1 3  = 15 chars
-        addrw = 15; 
+    } 
+    
+    if(opt.grp & dstaddr) {
+
+        if(addrw != 0) {
+            
+            addrw+=4;
+
+        }
+
+        addrw += 15; 
 
     }
 
@@ -166,7 +175,7 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
 {
     int sp = 0;
 
-    if(opt.grp & ip_ext) {
+    if((opt.grp & srcaddr) && (opt.grp & dstaddr)) {
         
         if(IP_API_I == agg->srcaddr.s_addr || IP_API_I == agg->dstaddr.s_addr) {
         
@@ -175,33 +184,45 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
         
         }
 
-    } else if(opt.grp & ip) {
+    } else if(opt.grp & (srcaddr | dstaddr)) {
 
-        if(opt.addr.s_addr == agg->srcaddr.s_addr) {
-            
+        in_addr_t caddr;
+
+        if(opt.grp & srcaddr) {
+            caddr = agg->srcaddr.s_addr;
+        } else {
+            caddr = agg->dstaddr.s_addr;
+        }
+        
+        if(opt.addr.s_addr == caddr) {
             printf("\033[41m");
             sp = 1;
-
-        } else if(IP_API_I == agg->srcaddr.s_addr) {
-        
+        } else if(IP_API_I == caddr) {
             printf("\033[44m");
             sp = 1;
-        
         }
-
+        
     }
 
-    if(opt.grp & ip) {
+    int ipwr = 0;
+
+    if(opt.grp & srcaddr) {
         
         printf("%15.15s", inet_ntoa(agg->srcaddr));
+        ipwr += 15;
         
-        if(opt.grp & ip_ext) {
+    } 
 
-            printf(" -> %15.15s", inet_ntoa(agg->dstaddr));
+    if(opt.grp & dstaddr) {
 
+        if(ipwr) {
+            printf(" -> ");
         }
 
-    } else {
+        printf("%15.15s", inet_ntoa(agg->dstaddr));
+    }
+    
+    if(!ipwr) {
         printf("%6.6s", " ");
     }
 
@@ -302,11 +323,11 @@ agg_equals(
     struct ip_agg * dst_agg) 
 {
 
-    if( (opt.grp & ip) && src_agg->srcaddr.s_addr != dst_agg->srcaddr.s_addr) {
+    if( (opt.grp & srcaddr) && src_agg->srcaddr.s_addr != dst_agg->srcaddr.s_addr) {
         return 0;
     }
 
-    if((opt.grp & ip_ext) && src_agg->dstaddr.s_addr != dst_agg->dstaddr.s_addr) {
+    if((opt.grp & dstaddr) && src_agg->dstaddr.s_addr != dst_agg->dstaddr.s_addr) {
         return 0;
     }
 
@@ -343,8 +364,8 @@ set_localization(struct ip_agg * a)
 {
     struct addr_loc loc;
 
-    if(opt.grp & ip_ext) {
-
+    if((opt.grp & srcaddr) && (opt.grp & dstaddr)) {
+        
         // take address from pair {src, dst} which isnt local 
         // and try to geolocalize it. 
         if(opt.addr.s_addr == a->srcaddr.s_addr) {
@@ -356,12 +377,18 @@ set_localization(struct ip_agg * a)
 
         a->loc = loc;
 
-    } else if(opt.grp & ip) {
+    } else if(opt.grp & (srcaddr | dstaddr)) {
 
-        ip_api(a->srcaddr, &loc);
-        a->loc = loc;
+        if(opt.grp & srcaddr) {
+            ip_api(a->srcaddr, &loc);
+            a->loc = loc;
+        } else if(opt.grp & dstaddr) {
+            ip_api(a->dstaddr, &loc);
+            a->loc = loc;
+        }
 
-    } 
+    }
+
 }
 
 struct ip_agg 
@@ -586,12 +613,13 @@ int configure(int argc, char *argv[], char * device)
             opt.localization = 1;
             break;
         case 'i':
-            opt.grp |= ip;
+            opt.grp |= srcaddr;
             break;
         case 'e':
-            opt.grp |= (ip | ip_ext);
+            opt.grp |= dstaddr;
+            break;
         case 'p':
-            opt.grp |= (proto);
+            opt.grp |= proto;
             break;
         case 's':
             opt.grp |= tu_src_port;
