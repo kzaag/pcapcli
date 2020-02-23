@@ -57,7 +57,8 @@ enum grp {
     ip      = 1,
     ip_ext  = 2,
     proto   = 4,
-    tu_port = 8
+    tu_src_port = 8,
+    tu_dst_port = 16
 };
 
 struct optbuff {

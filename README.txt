@@ -13,7 +13,8 @@ DESCRIPTION
     -i    group results by ip
     -e    group results by srcip - dstip pairs ( this will override -i option )
     -p    group by ip.protocol
-    -u    group by [tcp|udp].port
+    -d    group by source tcp/udp port
+    -t    group by target tcp/udp port
     -f    force execution and suppress any warnings / errors
 
     returned columns:
@@ -44,5 +45,5 @@ EXAMPLES
     ./pcapcli -iep
     ./pcapcli -ep
         group by ip address pairs of ip packets and underlying protocols
-    ./pcapcli -pu 
+    ./pcapcli -pdt
         group by protocol and port pairs ( if tcp | udp packet ) 

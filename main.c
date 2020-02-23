@@ -84,12 +84,30 @@ getaddrw()
 int 
 getprotow() 
 {
-    int protow = 6;
+    int protow = 0;
 
     // 00000 -> 00000 
     //   5    4    5 
-    if((opt.grp & tu_port) != 0) {
-        protow = 14;
+    if(opt.grp & tu_src_port) {
+
+        protow += 5;
+
+    }
+
+    if(opt.grp & tu_dst_port) {
+
+        if(protow != 0) {
+
+            protow += 4;
+
+        }
+
+        protow += 5;
+
+    }
+
+    if(protow == 0) {
+        protow = 6;
     }
 
     return protow;
@@ -116,13 +134,13 @@ hdr_to_str()
 
     printf("\033[47;30m");
 
-    printf("%*.*s %6.6s %8.8s %5.5s %5.5s %*.*s",
+    printf("%*.*s %6.6s %8.8s %5.5s %5.5s %*.*s ",
             addrw, addrw, "ADDR", 
                   "COUNT",
                         "SIZE", 
                                "LTIME", 
                                      "PROTO",
-                                          protow, protow, "PROTOB");
+                                          protow, protow, "PB");
 
     if(opt.localization) {
 
@@ -217,14 +235,29 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
     
     printf(" ");
 
-    if(opt.grp & tu_port) {
+    int pbwritten = 0;
+
+    if(opt.grp & tu_src_port) {
 
         snprintf(pbuff, 5, "%d", ntohs(agg->protobuff.tcpudp.srcport));
-        printf("%5.5s -> ", pbuff);
+        printf("%5.5s", pbuff);
+        pbwritten+=5;
+
+    }
+
+    if(opt.grp & tu_dst_port) {
+
+        if(pbwritten != 0) {
+            printf(" -> ");
+        }
+
         snprintf(pbuff, 5, "%d", ntohs(agg->protobuff.tcpudp.dstport));
         printf("%5.5s", pbuff);
+        pbwritten+=5;
 
-    } else {
+    } 
+    
+    if(pbwritten == 0) {
         printf("%6.6s", " ");
     }
 
@@ -278,15 +311,20 @@ agg_equals(
         return 0;
     }
 
-    if(opt.grp & tu_port) {
+    if(src_agg->proto == 6 || src_agg->proto == 17) {
+    
+        if(opt.grp & tu_src_port) {
 
-        if(src_agg->proto == 6 || src_agg->proto == 17) {
-
-            if(src_agg->protobuff.tcpudp.dstport != dst_agg->protobuff.tcpudp.dstport ||
-            src_agg->protobuff.tcpudp.srcport != dst_agg->protobuff.tcpudp.srcport) {
-                
+            if(src_agg->protobuff.tcpudp.srcport != dst_agg->protobuff.tcpudp.srcport) {
                 return 0;
-            
+            }
+
+        }
+
+        if(opt.grp & tu_dst_port) {
+
+            if(src_agg->protobuff.tcpudp.dstport != dst_agg->protobuff.tcpudp.dstport) {
+                return 0;
             }
 
         }
@@ -381,7 +419,9 @@ void agg_add(struct ip_agg * a)
     if (agg_ix == AGG_LEN - 1)
         agg_ix--;
     
-    set_localization(a);
+    if(opt.localization) {
+        set_localization(a);
+    }
 
     agg_buff[agg_ix++] = *a;
 
@@ -533,7 +573,7 @@ int configure(int argc, char *argv[], char * device)
 
     u_char force = 0;
 
-    while ((o = getopt(argc, argv, "?liepuf")) != -1)
+    while ((o = getopt(argc, argv, "?liepsdf")) != -1)
     {
         switch (o)
         {
@@ -548,8 +588,11 @@ int configure(int argc, char *argv[], char * device)
         case 'p':
             opt.grp |= (proto);
             break;
-        case 'u':
-            opt.grp |= tu_port;
+        case 's':
+            opt.grp |= tu_src_port;
+            break;
+        case 'd':
+            opt.grp |= tu_dst_port;
             break;
         case 'f':
             force = 1;

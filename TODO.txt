@@ -9,4 +9,6 @@
 [ ] dont display columns if group by is not specified
 [ ] try to get pid / name of process responsible for
     connection ( ex. listen port )
-[ ] replace udp/tcp port grouping with 2 separate groups -> dst_port, src_port
+[*] replace udp/tcp port grouping with 2 separate groups -> dst_port, src_port
+[ ] replace ip grouping with 2 separate groups -> src_addr, dst_addr
+[ ] support pcap filtering
