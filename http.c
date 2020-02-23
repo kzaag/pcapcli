@@ -10,6 +10,7 @@
 #include <stdlib.h>
 
 #include "main.h"
+#include "http.h"
 
 #define ERR 1
 #define RET_SIZE 1024
@@ -107,7 +108,7 @@ int ip_api(struct in_addr addr, struct addr_loc * ret) {
 
     char response[RET_SIZE];
 
-    if(get("ip-api.com", http, response, RET_SIZE) != 0) {
+    if(get(IP_API, http, response, RET_SIZE) != 0) {
         free(http);
         return 1;
     }

@@ -116,7 +116,7 @@ hdr_to_str()
 
     printf("\033[47;30m");
 
-    printf("%*.*s %6.6s %5.5s %5.5s %5.5s %*.*s",
+    printf("%*.*s %6.6s %8.8s %5.5s %5.5s %*.*s",
             addrw, addrw, "ADDR", 
                   "COUNT",
                         "SIZE", 
@@ -143,6 +143,33 @@ char pbuff[PBLEN];
 void 
 agg_to_str(struct ip_agg * agg, const time_t rel) 
 {
+    int sp = 0;
+
+    if(opt.grp & ip_ext) {
+        
+        if(IP_API_I == agg->srcaddr.s_addr || IP_API_I == agg->dstaddr.s_addr) {
+        
+            printf("\033[44m");
+            sp = 1;
+        
+        }
+
+    } else if(opt.grp & ip) {
+
+        if(opt.addr.s_addr == agg->srcaddr.s_addr) {
+            
+            printf("\033[41m");
+            sp = 1;
+
+        } else if(IP_API_I == agg->srcaddr.s_addr) {
+        
+            printf("\033[44m");
+            sp = 1;
+        
+        }
+
+    }
+
     if(opt.grp & ip) {
         
         printf("%15.15s", inet_ntoa(agg->srcaddr));
@@ -162,8 +189,8 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
     snprintf(pbuff, 6, "%lu", agg->count);
     printf("%6.6s ", pbuff);
 
-    readable_size(agg->size, 5, pbuff);
-    printf("%5.5s ", pbuff);
+    readable_size(agg->size, 8, pbuff);
+    printf("%8.8s ", pbuff);
 
     time_t elp = rel - agg->ltime;
     snprintf(pbuff, 5, "%li", elp);
@@ -195,11 +222,13 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
         snprintf(pbuff, 5, "%d", ntohs(agg->protobuff.tcpudp.srcport));
         printf("%5.5s -> ", pbuff);
         snprintf(pbuff, 5, "%d", ntohs(agg->protobuff.tcpudp.dstport));
-        printf("%5.5s ", pbuff);
+        printf("%5.5s", pbuff);
 
     } else {
         printf("%6.6s", " ");
     }
+
+    printf(" ");
 
     if(opt.localization) {
 
@@ -208,6 +237,10 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
                        LLEN, LLEN, agg->loc.city,
                              ISPLEN, ISPLEN, agg->loc.isp);
 
+    }
+
+    if(sp == 1) {
+        printf("\033[0m");
     }
 
     printf("\n");
