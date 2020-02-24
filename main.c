@@ -89,6 +89,10 @@ getaddrw()
 
     }
 
+    if(addrw == 0) {
+        addrw = 6;
+    }
+
     return addrw;
     
 }
