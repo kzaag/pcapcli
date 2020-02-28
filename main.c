@@ -65,7 +65,7 @@ agg_sort_2()
 int 
 getaddrw() 
 {
-    int addrw = 0; //6;
+    int addrw = 0;
 
     // 000.000.000.000 
     //  3 1 3 1 3 1 3  = 15 chars
@@ -96,7 +96,7 @@ getaddrw()
 }
 
 int 
-getprotow() 
+getprotobw() 
 {
     int protow = 0;
 
@@ -120,10 +120,6 @@ getprotow()
 
     }
 
-    if(protow == 0) {
-        protow = 6;
-    }
-
     return protow;
 
 }
@@ -144,17 +140,22 @@ void
 hdr_to_str()
 {
     int addrw = getaddrw();
-    int protow = getprotow();
+    int protobw = getprotobw();
+
+    int protow = 0;
+    if(opt.grp & proto) {
+        protow = 5;
+    }
 
     printf("\033[47;30m");
 
-    printf("%*.*s %6.6s %8.8s %5.5s %5.5s %*.*s ",
+    printf("%*.*s %6.6s %8.8s %5.5s %*.*s %*.*s ",
             addrw, addrw, "ADDR", 
                   "COUNT",
                         "SIZE", 
                                "LTIME", 
-                                     "PROTO",
-                                          protow, protow, "PB");
+                                     protow, protow, "PROTO",
+                                          protobw, protobw, "PB");
 
     if(opt.localization) {
 
@@ -179,8 +180,8 @@ hdr_to_str()
 #define PBLEN 30
 char pbuff[PBLEN];
 
-void 
-agg_to_str(struct ip_agg * agg, const time_t rel) 
+int 
+agg_set_sp(struct ip_agg * agg) 
 {
     int sp = 0;
 
@@ -213,6 +214,14 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
         
     }
 
+    return sp;
+}
+
+void 
+agg_to_str(struct ip_agg * agg, const time_t rel) 
+{
+    int sp = agg_set_sp(agg);
+
     int ipwr = 0;
 
     if(opt.grp & srcaddr) {
@@ -231,10 +240,10 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
         printf("%15.15s", inet_ntoa(agg->dstaddr));
     }
     
-    if(!ipwr) {
-        printf("%6.6s", " ");
-    }
-
+    // if(!ipwr) {
+    //     printf("%6.6s", " ");
+    // }
+    
     printf(" ");
 
     snprintf(pbuff, 6, "%lu", agg->count);
@@ -262,9 +271,10 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
             printf("  %3.3u", agg->proto);
 
         }
-    } else {
-        printf("%5.5s", " ");
-    }
+    } 
+    // else {
+    //     printf("%5.5s", " ");
+    // }
     
     printf(" ");
 
@@ -290,9 +300,9 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
 
     } 
     
-    if(pbwritten == 0) {
-        printf("%6.6s", " ");
-    }
+    // if(pbwritten == 0) {
+    //     printf("%6.6s", " ");
+    // }
 
     printf(" ");
 
@@ -305,10 +315,14 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
 
     }
 
-    if(opt.process && agg->prgp != NULL) {
+    if(opt.process) {
 
-        printf(" %*.*s",
-                 PRG_WIDTH, PRG_WIDTH, agg->prgp->name);
+        if(agg->prgp != NULL) {
+            printf(" %*.*s",
+                    PRG_WIDTH, PRG_WIDTH, agg->prgp->name);
+        } else {
+            printf(" %*.*s", PRG_WIDTH, PRG_WIDTH, " ");
+        }
 
     }
 
@@ -702,6 +716,11 @@ int configure(int argc, char *argv[], char * device)
         
         if(opt.localization && opt.grp > 1) {
             printf("User specified localization with alot group by options.\nThat could cause a flood of http requests to geolocalization api\nIf you know what you are doing use -f (force) flag\n");
+            return 1;
+        }
+
+        if(opt.process && (!( opt & tu_dst_port ) || !( opt & tu_src_port))) {
+            printf("you try to locate process but you do not group by ports.\nThat means no process can be possibly found.\nProvide -s or -d flag or both to include port info or\nif you know what you are doing use -f (force) flag\n");
             return 1;
         }
 
