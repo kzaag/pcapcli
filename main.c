@@ -6,14 +6,16 @@
 #include <linux/ip.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
-#include <arpa/inet.h>
 #include <time.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 
+#include "proc.h"
 #include "main.h"
 #include "http.h"
+#include "proc.h"
 
 struct optbuff opt;
 
@@ -163,6 +165,13 @@ hdr_to_str()
 
     }
 
+    if(opt.process) {
+
+        printf(" %*.*s",
+                 PRG_WIDTH, PRG_WIDTH, "PID/NAME");
+
+    }
+
     printf("\033[0m");
     printf("\n");
 }
@@ -296,6 +305,13 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
 
     }
 
+    if(opt.process && agg->prgp != NULL) {
+
+        printf(" %*.*s",
+                 PRG_WIDTH, PRG_WIDTH, agg->prgp->name);
+
+    }
+
     if(sp == 1) {
         printf("\033[0m");
     }
@@ -356,6 +372,40 @@ agg_equals(
     }
 
     return 1;
+
+}
+
+void
+set_proc(struct ip_agg * a)
+{
+
+    unsigned short port = -1;
+
+    if(opt.grp & tu_src_port) {
+        if(a->srcaddr.s_addr == opt.addr.s_addr) {
+            port = a->protobuff.tcpudp.srcport;
+        }
+    }
+
+    if(opt.grp & tu_dst_port) {
+        if(a->dstaddr.s_addr == opt.addr.s_addr) {
+            port = a->protobuff.tcpudp.dstport;
+        }
+    }
+
+    if(port == -1) {
+        return;
+    }
+
+    a->prgp = proc_get(port);
+
+    // possibly very cpu-consuming op.
+    // if we didnt find process that means maybe new is listening? so refill cache and try again. 
+    if(!a->prgp) {
+        proc_reset();
+        proc_load();
+        a->prgp = proc_get(port);
+    }
 
 }
 
@@ -451,6 +501,10 @@ void agg_add(struct ip_agg * a)
     
     if(opt.localization) {
         set_localization(a);
+    }
+
+    if(opt.process) {
+        set_proc(a);
     }
 
     agg_buff[agg_ix++] = *a;
@@ -597,6 +651,7 @@ int device_ip(const char * device, struct in_addr * addr) {
 int configure(int argc, char *argv[], char * device) 
 {
     opt.localization = 0;
+    opt.process = 0;
     opt.grp = 0;
     bzero(squery, SQLEN);
     opt.squery = squery;
@@ -605,7 +660,7 @@ int configure(int argc, char *argv[], char * device)
 
     u_char force = 0;
 
-    while ((o = getopt(argc, argv, "?liepsdfq:")) != -1)
+    while ((o = getopt(argc, argv, "?liepsdfq:n")) != -1)
     {
         switch (o)
         {
@@ -632,6 +687,9 @@ int configure(int argc, char *argv[], char * device)
             break;
         case 'q':
             strncpy(squery, optarg, SQLEN);
+            break;
+        case 'n':
+            opt.process = 1;
             break;
         case '?':
         default:
@@ -674,6 +732,8 @@ int main(int argc, char *argv[])
     if(configure(argc, argv, dev) != 0) {
         exit(1);
     }
+
+    proc_load();
 
     char errbuff[PCAP_ERRBUF_SIZE];
     pcap_t *handle;

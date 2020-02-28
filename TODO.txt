@@ -1,9 +1,9 @@
-[ ] more parsing for tcp -> syn / ack floding detection
+[ ] more parsing for tcp -> syn / ack. floding detection
 [ ] make it 2 threads -> one which refreshes io and 2nd which refreshes buffer. 
     do not refresh io each request because performance hurts.
 [ ] add proper entry to linux man and properly handle -? option
 [ ] dont display columns if group by is not specified
-[ ] try to get pid / name of process responsible for
+[*] try to get pid / name of process responsible for
     connection ( ex. listen port )
 [*] replace udp/tcp port grouping with 2 separate groups -> dst_port, src_port
 [*] replace ip grouping with 2 separate groups -> src_addr, dst_addr
