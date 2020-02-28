@@ -16,6 +16,7 @@ DESCRIPTION
     -p    group by ip.protocol
     -s    group by source tcp/udp port
     -d    group by target tcp/udp port
+    -n    add process identification
     -f    force execution and suppress any warnings / errors
 
     -q    pcap filter query
@@ -50,5 +51,7 @@ EXAMPLES
         group by ip address pairs of ip packets and underlying protocols
     ./pcapcli -psd
         group by protocol and port pairs ( if tcp | udp packet ) 
+    ./pcapcli -iepsn
+        try to locate process for packets
     ./pcapcli -q tcp dest port 443
         only packages with dst port = 443

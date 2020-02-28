@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include <linux/in.h>
+#include "proc.h"
 
 #define tclean() printf("\033[H\033[J")
 
@@ -46,6 +47,7 @@ struct ip_agg
     union proto_agg protobuff;
 
     struct addr_loc loc;
+    struct prg_cache * prgp;
 
     unsigned long count;
     unsigned long size;
@@ -76,6 +78,8 @@ struct optbuff {
 
     // download extra localization data about ip packets
     u_char localization : 1;
+    // try to locate [local] process responsible for packets
+    u_char process      : 1;
 };
 
 #endif

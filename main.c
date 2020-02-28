@@ -6,14 +6,16 @@
 #include <linux/ip.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
-#include <arpa/inet.h>
 #include <time.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 
+#include "proc.h"
 #include "main.h"
 #include "http.h"
+#include "proc.h"
 
 struct optbuff opt;
 
@@ -63,7 +65,7 @@ agg_sort_2()
 int 
 getaddrw() 
 {
-    int addrw = 0; //6;
+    int addrw = 0;
 
     // 000.000.000.000 
     //  3 1 3 1 3 1 3  = 15 chars
@@ -98,7 +100,7 @@ getaddrw()
 }
 
 int 
-getprotow() 
+getprotobw() 
 {
     int protow = 0;
 
@@ -122,10 +124,6 @@ getprotow()
 
     }
 
-    if(protow == 0) {
-        protow = 6;
-    }
-
     return protow;
 
 }
@@ -146,17 +144,22 @@ void
 hdr_to_str()
 {
     int addrw = getaddrw();
-    int protow = getprotow();
+    int protobw = getprotobw();
+
+    int protow = 0;
+    if(opt.grp & proto) {
+        protow = 5;
+    }
 
     printf("\033[47;30m");
 
-    printf("%*.*s %6.6s %8.8s %5.5s %5.5s %*.*s ",
+    printf("%*.*s %6.6s %8.8s %5.5s %*.*s %*.*s ",
             addrw, addrw, "ADDR", 
                   "COUNT",
                         "SIZE", 
                                "LTIME", 
-                                     "PROTO",
-                                          protow, protow, "PB");
+                                     protow, protow, "PROTO",
+                                          protobw, protobw, "PB");
 
     if(opt.localization) {
 
@@ -167,6 +170,13 @@ hdr_to_str()
 
     }
 
+    if(opt.process) {
+
+        printf(" %*.*s",
+                 PRG_WIDTH, PRG_WIDTH, "PID/NAME");
+
+    }
+
     printf("\033[0m");
     printf("\n");
 }
@@ -174,8 +184,8 @@ hdr_to_str()
 #define PBLEN 30
 char pbuff[PBLEN];
 
-void 
-agg_to_str(struct ip_agg * agg, const time_t rel) 
+int 
+agg_set_sp(struct ip_agg * agg) 
 {
     int sp = 0;
 
@@ -208,6 +218,14 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
         
     }
 
+    return sp;
+}
+
+void 
+agg_to_str(struct ip_agg * agg, const time_t rel) 
+{
+    int sp = agg_set_sp(agg);
+
     int ipwr = 0;
 
     if(opt.grp & srcaddr) {
@@ -226,10 +244,10 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
         printf("%15.15s", inet_ntoa(agg->dstaddr));
     }
     
-    if(!ipwr) {
-        printf("%6.6s", " ");
-    }
-
+    // if(!ipwr) {
+    //     printf("%6.6s", " ");
+    // }
+    
     printf(" ");
 
     snprintf(pbuff, 6, "%lu", agg->count);
@@ -257,9 +275,10 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
             printf("  %3.3u", agg->proto);
 
         }
-    } else {
-        printf("%5.5s", " ");
-    }
+    } 
+    // else {
+    //     printf("%5.5s", " ");
+    // }
     
     printf(" ");
 
@@ -285,9 +304,9 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
 
     } 
     
-    if(pbwritten == 0) {
-        printf("%6.6s", " ");
-    }
+    // if(pbwritten == 0) {
+    //     printf("%6.6s", " ");
+    // }
 
     printf(" ");
 
@@ -297,6 +316,17 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
                  LLEN, LLEN, agg->loc.country,
                        LLEN, LLEN, agg->loc.city,
                              ISPLEN, ISPLEN, agg->loc.isp);
+
+    }
+
+    if(opt.process) {
+
+        if(agg->prgp != NULL) {
+            printf(" %*.*s",
+                    PRG_WIDTH, PRG_WIDTH, agg->prgp->name);
+        } else {
+            printf(" %*.*s", PRG_WIDTH, PRG_WIDTH, " ");
+        }
 
     }
 
@@ -360,6 +390,40 @@ agg_equals(
     }
 
     return 1;
+
+}
+
+void
+set_proc(struct ip_agg * a)
+{
+
+    unsigned short port = -1;
+
+    if(opt.grp & tu_src_port) {
+        if(a->srcaddr.s_addr == opt.addr.s_addr) {
+            port = a->protobuff.tcpudp.srcport;
+        }
+    }
+
+    if(opt.grp & tu_dst_port) {
+        if(a->dstaddr.s_addr == opt.addr.s_addr) {
+            port = a->protobuff.tcpudp.dstport;
+        }
+    }
+
+    if(port == -1) {
+        return;
+    }
+
+    a->prgp = proc_get(port);
+
+    // possibly very cpu-consuming op.
+    // if we didnt find process that means maybe new is listening? so refill cache and try again. 
+    if(!a->prgp) {
+        proc_reset();
+        proc_load();
+        a->prgp = proc_get(port);
+    }
 
 }
 
@@ -455,6 +519,10 @@ void agg_add(struct ip_agg * a)
     
     if(opt.localization) {
         set_localization(a);
+    }
+
+    if(opt.process) {
+        set_proc(a);
     }
 
     agg_buff[agg_ix++] = *a;
@@ -601,6 +669,7 @@ int device_ip(const char * device, struct in_addr * addr) {
 int configure(int argc, char *argv[], char * device) 
 {
     opt.localization = 0;
+    opt.process = 0;
     opt.grp = 0;
     bzero(squery, SQLEN);
     opt.squery = squery;
@@ -609,7 +678,7 @@ int configure(int argc, char *argv[], char * device)
 
     u_char force = 0;
 
-    while ((o = getopt(argc, argv, "?liepsdfq:")) != -1)
+    while ((o = getopt(argc, argv, "?liepsdfq:n")) != -1)
     {
         switch (o)
         {
@@ -637,6 +706,9 @@ int configure(int argc, char *argv[], char * device)
         case 'q':
             strncpy(squery, optarg, SQLEN);
             break;
+        case 'n':
+            opt.process = 1;
+            break;
         case '?':
         default:
             printf("See README.txt for usage\n");
@@ -648,6 +720,11 @@ int configure(int argc, char *argv[], char * device)
         
         if(opt.localization && opt.grp > 1) {
             printf("User specified localization with alot group by options.\nThat could cause a flood of http requests to geolocalization api\nIf you know what you are doing use -f (force) flag\n");
+            return 1;
+        }
+
+        if(opt.process && (!( opt & tu_dst_port ) || !( opt & tu_src_port))) {
+            printf("you try to locate process but you do not group by ports.\nThat means no process can be possibly found.\nProvide -s or -d flag or both to include port info or\nif you know what you are doing use -f (force) flag\n");
             return 1;
         }
 
@@ -678,6 +755,8 @@ int main(int argc, char *argv[])
     if(configure(argc, argv, dev) != 0) {
         exit(1);
     }
+
+    proc_load();
 
     char errbuff[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
