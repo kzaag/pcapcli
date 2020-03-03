@@ -723,7 +723,7 @@ int configure(int argc, char *argv[], char * device)
             return 1;
         }
 
-        if(opt.process && (!( opt & tu_dst_port ) || !( opt & tu_src_port))) {
+        if(opt.process && (!( opt.grp & tu_dst_port ) || !( opt.grp & tu_src_port))) {
             printf("you try to locate process but you do not group by ports.\nThat means no process can be possibly found.\nProvide -s or -d flag or both to include port info or\nif you know what you are doing use -f (force) flag\n");
             return 1;
         }
