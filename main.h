@@ -4,6 +4,7 @@
 #include <time.h>
 #include <linux/in.h>
 #include "proc.h"
+#include "http.h"
 
 #define tclean() printf("\033[H\033[J")
 
@@ -12,18 +13,7 @@
 #define tsetnowrap() printf("\033[?7l")
 #define tsetwrap printf("\033[?7h")
 
-// location fields lengths
-#define LLEN   15
-#define ISPLEN 40
-
 typedef unsigned char u_char;
-
-struct addr_loc
-{
-    char country[LLEN];
-    char city[LLEN];
-    char isp[ISPLEN];
-};
 
 struct tcp_udp_agg {
 
@@ -37,22 +27,18 @@ union proto_agg {
 
 struct ip_agg
 {
-    // if gropu by ip is diabled then srcaddr will be the only field assigned
-    // otherwise both
     struct in_addr srcaddr;
     struct in_addr dstaddr;
 
-    // underlying protocol. its my sad attempt of implementing polymorphism in C
     u_char proto;    
     union proto_agg protobuff;
 
-    struct addr_loc loc;
+    struct addr_loc * loc;
     struct prg_cache * prgp;
 
     unsigned long count;
     unsigned long size;
     time_t ltime;
-
 };
 
 enum grp {
@@ -80,6 +66,8 @@ struct optbuff {
     u_char localization : 1;
     // try to locate [local] process responsible for packets
     u_char process      : 1;
+    // redefine meaning of src/dst ip/port from sender/receiver of packet to local - src/remote -dst
+    u_char remote       : 1;
 };
 
 #endif

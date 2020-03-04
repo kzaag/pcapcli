@@ -9,12 +9,14 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 
-#include "main.h"
 #include "http.h"
 
 #define ERR 1
 #define RET_SIZE 1024
+#define PRG_CACHE_LEN 300
 
+struct addr_loc_c addr_cache[PRG_CACHE_LEN];
+int addr_cache_ix = 0;
 
 int get(const char host[], char fmt[], char * ret, int size) {
     int tcp = socket(AF_INET, SOCK_STREAM, 0);
@@ -95,6 +97,39 @@ retErr:
 
 }
 
+// NULL -> not found
+struct addr_loc * cache_get_addr(struct in_addr addr) {
+
+    for(int i = 0; i < addr_cache_ix; i++) {
+        if(addr_cache[i].addr.s_addr == addr.s_addr){
+            return &addr_cache[i].loc;
+        }
+    }
+
+    return NULL;
+}
+
+// NULL -> error
+struct addr_loc * cache_add_addr(struct in_addr addr, struct addr_loc * loc) {
+
+    if(addr_cache_ix >= PRG_CACHE_LEN) {
+        return NULL;
+    }
+
+    for(int i = 0; i < addr_cache_ix; i++) {
+        if(addr_cache[i].addr.s_addr == addr.s_addr){
+            return &addr_cache[i].loc;
+        }
+    }
+
+    addr_cache[addr_cache_ix].addr = addr;
+    addr_cache[addr_cache_ix].loc = *loc;
+
+    addr_cache_ix++;
+
+    return &addr_cache[addr_cache_ix-1].loc;
+}
+
 int ip_api(struct in_addr addr, struct addr_loc * ret) {
 
     if(ret == NULL) {
@@ -132,4 +167,22 @@ int ip_api(struct in_addr addr, struct addr_loc * ret) {
     free(http);
 
     return 0;
+}
+
+struct addr_loc * geolocalize(struct in_addr addr) {
+    
+    struct addr_loc * ret;
+
+    if((ret = cache_get_addr(addr))) {
+        return ret;
+    }
+
+    struct addr_loc loc;
+    ip_api(addr, &loc);
+
+    if((ret = cache_add_addr(addr, &loc))) {
+       return ret;
+    }
+
+    return NULL;
 }

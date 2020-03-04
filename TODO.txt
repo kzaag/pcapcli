@@ -8,5 +8,5 @@
 [*] replace udp/tcp port grouping with 2 separate groups -> dst_port, src_port
 [*] replace ip grouping with 2 separate groups -> src_addr, dst_addr
 [*] support pcap filtering
-[ ] cache ip_api results to reduce http request number
+[*] cache ip_api results to reduce http request number
 [ ] migrate proc cache to hash

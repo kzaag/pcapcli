@@ -22,7 +22,7 @@ struct optbuff opt;
 #define SQLEN 100
 char squery[SQLEN];
 
-#define AGG_LEN 20
+#define AGG_LEN 40
 struct ip_agg agg_buff[AGG_LEN];
 size_t agg_ix = 0;
 
@@ -89,10 +89,6 @@ getaddrw()
 
         addrw += 15; 
 
-    }
-
-    if(addrw == 0) {
-        addrw = 6;
     }
 
     return addrw;
@@ -193,7 +189,7 @@ agg_set_sp(struct ip_agg * agg)
         
         if(IP_API_I == agg->srcaddr.s_addr || IP_API_I == agg->dstaddr.s_addr) {
         
-            printf("\033[44m");
+            printf("\033[35m");
             sp = 1;
         
         }
@@ -208,11 +204,16 @@ agg_set_sp(struct ip_agg * agg)
             caddr = agg->dstaddr.s_addr;
         }
         
-        if(opt.addr.s_addr == caddr) {
-            printf("\033[41m");
-            sp = 1;
-        } else if(IP_API_I == caddr) {
-            printf("\033[44m");
+        // if(opt.addr.s_addr == caddr) {
+        //     printf("\033[41m");
+        //     sp = 1;
+        // } else if(IP_API_I == caddr) {
+        //     printf("\033[44m");
+        //     sp = 1;
+        // }
+
+        if(IP_API_I == caddr) {
+            printf("\033[35m");
             sp = 1;
         }
         
@@ -250,14 +251,14 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
     
     printf(" ");
 
-    snprintf(pbuff, 6, "%lu", agg->count);
+    snprintf(pbuff, 7, "%lu", agg->count);
     printf("%6.6s ", pbuff);
 
     readable_size(agg->size, 8, pbuff);
     printf("%8.8s ", pbuff);
 
     time_t elp = rel - agg->ltime;
-    snprintf(pbuff, 5, "%li", elp);
+    snprintf(pbuff, 6, "%li", elp);
     printf("%5.5s ", pbuff);
 
     if(opt.grp & proto) {
@@ -286,7 +287,7 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
 
     if(opt.grp & tu_src_port) {
 
-        snprintf(pbuff, 5, "%d", ntohs(agg->protobuff.tcpudp.srcport));
+        snprintf(pbuff, 6, "%d", ntohs(agg->protobuff.tcpudp.srcport));
         printf("%5.5s", pbuff);
         pbwritten+=5;
 
@@ -298,7 +299,7 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
             printf(" -> ");
         }
 
-        snprintf(pbuff, 5, "%d", ntohs(agg->protobuff.tcpudp.dstport));
+        snprintf(pbuff, 6, "%d", ntohs(agg->protobuff.tcpudp.dstport));
         printf("%5.5s", pbuff);
         pbwritten+=5;
 
@@ -310,12 +311,12 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
 
     printf(" ");
 
-    if(opt.localization) {
+    if(opt.localization && agg->loc != NULL) {
 
         printf(" %*.*s %*.*s %*.*s",
-                 LLEN, LLEN, agg->loc.country,
-                       LLEN, LLEN, agg->loc.city,
-                             ISPLEN, ISPLEN, agg->loc.isp);
+                 LLEN, LLEN, agg->loc->country,
+                       LLEN, LLEN, agg->loc->city,
+                             ISPLEN, ISPLEN, agg->loc->isp);
 
     }
 
@@ -396,7 +397,6 @@ agg_equals(
 void
 set_proc(struct ip_agg * a)
 {
-
     unsigned short port = -1;
 
     if(opt.grp & tu_src_port) {
@@ -430,29 +430,32 @@ set_proc(struct ip_agg * a)
 void
 set_localization(struct ip_agg * a) 
 {
-    struct addr_loc loc;
+    //struct addr_loc loc;
 
     if((opt.grp & srcaddr) && (opt.grp & dstaddr)) {
         
         // take address from pair {src, dst} which isnt local 
         // and try to geolocalize it. 
         if(opt.addr.s_addr == a->srcaddr.s_addr) {
-
-            ip_api(a->dstaddr, &loc);
+            a->loc = geolocalize(a->dstaddr);
+            //ip_api(a->dstaddr, &loc);
         } else {
-            ip_api(a->srcaddr, &loc);
+            a->loc = geolocalize(a->srcaddr);
+            //ip_api(a->srcaddr, &loc);
         }
 
-        a->loc = loc;
+        //a->loc = loc;
 
     } else if(opt.grp & (srcaddr | dstaddr)) {
 
         if(opt.grp & srcaddr) {
-            ip_api(a->srcaddr, &loc);
-            a->loc = loc;
+            a->loc = geolocalize(a->srcaddr);
+            // ip_api(a->srcaddr, &loc);
+            // a->loc = loc;
         } else if(opt.grp & dstaddr) {
-            ip_api(a->dstaddr, &loc);
-            a->loc = loc;
+            a->loc = geolocalize(a->dstaddr);
+            // ip_api(a->dstaddr, &loc);
+            // a->loc = loc;
         }
 
     }
@@ -469,8 +472,29 @@ agg_creat(
 {
     
     struct ip_agg a;
-    a.srcaddr = src;
-    a.dstaddr = dst;
+    in_addr_t local = opt.addr.s_addr;
+
+    // TODO: simplify this ( like ports below )
+    do {
+
+        if(opt.remote) {
+
+            if(src.s_addr == local) {
+                a.srcaddr = src;
+                a.dstaddr = dst;
+                break;
+            } else if(dst.s_addr == local) {
+                a.dstaddr = src;
+                a.srcaddr = dst;
+                break;
+            }
+        }
+    
+        a.srcaddr = src;
+        a.dstaddr = dst;
+
+    } while(0);
+
     a.count = 1;
     a.proto = iproto;
     a.ltime = time(NULL);
@@ -478,19 +502,30 @@ agg_creat(
 
     if(hdr != NULL) {
 
+        unsigned short srcp, dstp, tmp;
+
         if(iproto == 6){
 
             struct tcphdr * tcph = (struct tcphdr *)hdr;
-            a.protobuff.tcpudp.dstport = tcph->dest;
-            a.protobuff.tcpudp.srcport = tcph->source;
+            dstp = tcph->dest;
+            srcp = tcph->source;
 
         } else if(iproto == 17) {
 
             struct udphdr * udp = (struct udphdr *)hdr;
-            a.protobuff.tcpudp.dstport = udp->dest;
-            a.protobuff.tcpudp.srcport = udp->source;
+            dstp = udp->dest;
+            srcp = udp->source;
 
         }
+
+        if(opt.remote && (dst.s_addr == local)) {
+            tmp = srcp;
+            srcp = dstp;
+            dstp = tmp;
+        }
+
+        a.protobuff.tcpudp.srcport = srcp;
+        a.protobuff.tcpudp.dstport = dstp;
 
     }
 
@@ -509,7 +544,6 @@ void agg_add(struct ip_agg * a)
             (agg_buff[i].size) += a->size;
             
             return;
-
         }
 
     }
@@ -526,7 +560,6 @@ void agg_add(struct ip_agg * a)
     }
 
     agg_buff[agg_ix++] = *a;
-
 }
 
 struct iphdr* pckt_ip(const u_char *packet, bpf_u_int32 len, u_char *args)
@@ -574,6 +607,8 @@ struct udphdr * pckt_udp(const u_char *packet, bpf_u_int32 packetlen, bpf_u_int3
 
     return udp;
 }
+
+volatile int i = 0;
 
 void pckt_next(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
@@ -670,6 +705,7 @@ int configure(int argc, char *argv[], char * device)
 {
     opt.localization = 0;
     opt.process = 0;
+    opt.remote = 0;
     opt.grp = 0;
     bzero(squery, SQLEN);
     opt.squery = squery;
@@ -678,7 +714,7 @@ int configure(int argc, char *argv[], char * device)
 
     u_char force = 0;
 
-    while ((o = getopt(argc, argv, "?liepsdfq:n")) != -1)
+    while ((o = getopt(argc, argv, "?liepsdfq:nr")) != -1)
     {
         switch (o)
         {
@@ -709,6 +745,9 @@ int configure(int argc, char *argv[], char * device)
         case 'n':
             opt.process = 1;
             break;
+        case 'r':
+            opt.remote = 1;
+            break;
         case '?':
         default:
             printf("See README.txt for usage\n");
@@ -718,12 +757,13 @@ int configure(int argc, char *argv[], char * device)
 
     if(!force) {
         
-        if(opt.localization && opt.grp > 1) {
-            printf("User specified localization with alot group by options.\nThat could cause a flood of http requests to geolocalization api\nIf you know what you are doing use -f (force) flag\n");
-            return 1;
-        }
+        // after ip caching this chaeck is no longer neccessary
+        // if(opt.localization && opt.grp > 1) {
+        //     printf("User specified localization with alot group by options.\nThat could cause a flood of http requests to geolocalization api\nIf you know what you are doing use -f (force) flag\n");
+        //     return 1;
+        // }
 
-        if(opt.process && (!( opt.grp & tu_dst_port ) || !( opt.grp & tu_src_port))) {
+        if(opt.process && !( opt.grp & (tu_dst_port | tu_src_port)) ) {
             printf("you try to locate process but you do not group by ports.\nThat means no process can be possibly found.\nProvide -s or -d flag or both to include port info or\nif you know what you are doing use -f (force) flag\n");
             return 1;
         }
