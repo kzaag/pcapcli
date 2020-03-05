@@ -11,6 +11,7 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <sys/ioctl.h>
 
 #include "proc.h"
 #include "main.h"
@@ -342,10 +343,13 @@ agg_to_str(struct ip_agg * agg, const time_t rel)
 void 
 agg_draw()
 {
-
+    int offset = 2;
     time_t now = time(NULL);
+    struct winsize s;
 
-    for (size_t i = 0; i < agg_ix; i++)
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &s);
+
+    for (size_t i = 0; i < agg_ix && i < s.ws_row - offset; i++)
     {
         agg_to_str(&agg_buff[i], now);
     }
@@ -784,7 +788,6 @@ int configure(int argc, char *argv[], char * device)
 
 int main(int argc, char *argv[])
 {
-
     char *dev = pcap_lookupdev(NULL);
     if (dev == NULL)
     {
