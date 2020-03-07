@@ -718,10 +718,17 @@ int configure(int argc, char *argv[], char * device)
 
     u_char force = 0;
 
-    while ((o = getopt(argc, argv, "?liepsdfq:nr")) != -1)
+    while ((o = getopt(argc, argv, "?liepsdfq:nr0")) != -1)
     {
         switch (o)
         {
+        case '0':
+            opt.grp |= dstaddr;
+            opt.grp |= proto;
+            opt.grp |= tu_dst_port;
+            opt.localization = 1;
+            opt.remote = 1;
+            break;
         case 'l':
             opt.localization = 1;
             break;

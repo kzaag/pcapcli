@@ -22,6 +22,8 @@ DESCRIPTION
 
     -q    pcap filter query
 
+    -0    same as -edrpl
+
     returned columns:
 
     ADDR
@@ -49,7 +51,7 @@ EXAMPLES
         -r by destination ip mean only remote server ip
         -l use geolocalization of ip addresses
         -f suppress warnings / errors
-    ./pcapcli -edrlp
+    ./pcapcli -0
         -e get destination ip for packages
         -d get destination port for packages
         -r by destination ip/port mean only remote server ip/port
