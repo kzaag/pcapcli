@@ -71,7 +71,7 @@ void net_cache_add(unsigned long inode, struct in_addr local_ip, unsigned short 
 
 }
 
-void prg_cache_add(long inode, char * name, int pid, struct net_cache * net_ptr) {
+void prg_cache_add(unsigned long inode, char * name, int pid, struct net_cache * net_ptr) {
 
     // this could be hash table but since premature optimization is source of all troubles
     // im putting it as todo
