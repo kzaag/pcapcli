@@ -826,6 +826,8 @@ int main(int argc, char *argv[])
         fprintf(stderr, "%s", "couldnt set snaplen\n");
         return 102;
     }
+    
+    pcap_set_immediate_mode(handle, 1);
 
     if (pcap_activate(handle) != 0)
     {
